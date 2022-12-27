@@ -505,7 +505,11 @@ public class FlutterLocalNotificationsPlugin
         getBroadcastPendingIntent(context, notificationDetails.id, notificationIntent);
 
     AlarmManager alarmManager = getAlarmManager(context);
-    if (BooleanUtils.getValue(notificationDetails.allowWhileIdle)) {
+    if (BooleanUtils.getValue(notificationDetails.useAlarmClock)) {
+      AlarmManagerCompat.setAlarmClock(alarmManager, notificationDetails.millisecondsSinceEpoch,
+              pendingIntent,
+              pendingIntent);
+    } else if (BooleanUtils.getValue(notificationDetails.allowWhileIdle)) {
       AlarmManagerCompat.setExactAndAllowWhileIdle(
           alarmManager,
           AlarmManager.RTC_WAKEUP,
@@ -542,7 +546,11 @@ public class FlutterLocalNotificationsPlugin
             .toInstant()
             .toEpochMilli();
 
-    if (BooleanUtils.getValue(notificationDetails.allowWhileIdle)) {
+    if (BooleanUtils.getValue(notificationDetails.useAlarmClock)) {
+      AlarmManagerCompat.setAlarmClock(alarmManager, epochMilli,
+              pendingIntent,
+              pendingIntent);
+    } else if (BooleanUtils.getValue(notificationDetails.allowWhileIdle)) {
       AlarmManagerCompat.setExactAndAllowWhileIdle(
           alarmManager, AlarmManager.RTC_WAKEUP, epochMilli, pendingIntent);
     } else {
@@ -635,7 +643,11 @@ public class FlutterLocalNotificationsPlugin
         getBroadcastPendingIntent(context, notificationDetails.id, notificationIntent);
     AlarmManager alarmManager = getAlarmManager(context);
 
-    if (BooleanUtils.getValue(notificationDetails.allowWhileIdle)) {
+    if (BooleanUtils.getValue(notificationDetails.useAlarmClock)) {
+      AlarmManagerCompat.setAlarmClock(alarmManager, notificationTriggerTime,
+              pendingIntent,
+              pendingIntent);
+    }else if (BooleanUtils.getValue(notificationDetails.allowWhileIdle)) {
       AlarmManagerCompat.setExactAndAllowWhileIdle(
           alarmManager, AlarmManager.RTC_WAKEUP, notificationTriggerTime, pendingIntent);
     } else {

@@ -178,11 +178,13 @@ class AndroidFlutterLocalNotificationsPlugin
     AndroidNotificationDetails? notificationDetails, {
     String? payload,
     bool androidAllowWhileIdle = false,
+    bool androidUseAlarmClock = false,
   }) async {
     validateId(id);
     final Map<String, Object?> serializedPlatformSpecifics =
         notificationDetails?.toMap() ?? <String, Object>{};
     serializedPlatformSpecifics['allowWhileIdle'] = androidAllowWhileIdle;
+    serializedPlatformSpecifics['useAlarmClock'] = androidUseAlarmClock;
     await _channel.invokeMethod('schedule', <String, Object?>{
       'id': id,
       'title': title,

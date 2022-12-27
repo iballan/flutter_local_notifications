@@ -307,6 +307,7 @@ class FlutterLocalNotificationsPlugin {
     NotificationDetails notificationDetails, {
     String? payload,
     bool androidAllowWhileIdle = false,
+    bool androidUseAlarmClock = false,
   }) async {
     if (kIsWeb) {
       return;
@@ -315,7 +316,8 @@ class FlutterLocalNotificationsPlugin {
       await resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()!
           .schedule(id, title, body, scheduledDate, notificationDetails.android,
-              payload: payload, androidAllowWhileIdle: androidAllowWhileIdle);
+              payload: payload, androidAllowWhileIdle: androidAllowWhileIdle,
+          androidUseAlarmClock: androidUseAlarmClock);
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       await resolvePlatformSpecificImplementation<
               IOSFlutterLocalNotificationsPlugin>()
