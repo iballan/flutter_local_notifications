@@ -122,6 +122,7 @@ public class FlutterLocalNotificationsPlugin
   private static final String CALLBACK_HANDLE = "callback_handle";
   private static final String DRAWABLE = "drawable";
   private static final String DEFAULT_ICON = "defaultIcon";
+  private static final String SCHEDULE_RECEIVER_REFLECTION_CLASS_NAME = "scheduleReceiverReflectionClassName";
   private static final String SELECT_NOTIFICATION = "SELECT_NOTIFICATION";
   private static final String SELECT_FOREGROUND_NOTIFICATION_ACTION =
       "SELECT_FOREGROUND_NOTIFICATION";
@@ -528,7 +529,7 @@ public class FlutterLocalNotificationsPlugin
       Boolean updateScheduledNotificationsCache) {
     Gson gson = buildGson();
     String notificationDetailsJson = gson.toJson(notificationDetails);
-    Intent notificationIntent = new Intent(context, ScheduledNotificationReceiver.class);
+    Intent notificationIntent = new Intent(context, getReceiverClass(context));
     notificationIntent.putExtra(NOTIFICATION_DETAILS, notificationDetailsJson);
     PendingIntent pendingIntent =
         getBroadcastPendingIntent(context, notificationDetails.id, notificationIntent);
@@ -551,7 +552,7 @@ public class FlutterLocalNotificationsPlugin
       Boolean updateScheduledNotificationsCache) {
     Gson gson = buildGson();
     String notificationDetailsJson = gson.toJson(notificationDetails);
-    Intent notificationIntent = new Intent(context, ScheduledNotificationReceiver.class);
+    Intent notificationIntent = new Intent(context, getReceiverClass(context));
     notificationIntent.putExtra(NOTIFICATION_DETAILS, notificationDetailsJson);
     PendingIntent pendingIntent =
         getBroadcastPendingIntent(context, notificationDetails.id, notificationIntent);
@@ -577,7 +578,7 @@ public class FlutterLocalNotificationsPlugin
         calculateNextNotificationTrigger(notificationDetails.calledAt, repeatInterval);
     Gson gson = buildGson();
     String notificationDetailsJson = gson.toJson(notificationDetails);
-    Intent notificationIntent = new Intent(context, ScheduledNotificationReceiver.class);
+    Intent notificationIntent = new Intent(context, getReceiverClass(context));
     notificationIntent.putExtra(NOTIFICATION_DETAILS, notificationDetailsJson);
     PendingIntent pendingIntent =
         getBroadcastPendingIntent(context, notificationDetails.id, notificationIntent);
@@ -647,7 +648,7 @@ public class FlutterLocalNotificationsPlugin
 
     Gson gson = buildGson();
     String notificationDetailsJson = gson.toJson(notificationDetails);
-    Intent notificationIntent = new Intent(context, ScheduledNotificationReceiver.class);
+    Intent notificationIntent = new Intent(context, getReceiverClass(context));
     notificationIntent.putExtra(NOTIFICATION_DETAILS, notificationDetailsJson);
     PendingIntent pendingIntent =
         getBroadcastPendingIntent(context, notificationDetails.id, notificationIntent);
@@ -1558,6 +1559,7 @@ public class FlutterLocalNotificationsPlugin
   private void initialize(MethodCall call, Result result) {
     Map<String, Object> arguments = call.arguments();
     String defaultIcon = (String) arguments.get(DEFAULT_ICON);
+    String scheduleReceiverReflectionClassName = (String) arguments.get(SCHEDULE_RECEIVER_REFLECTION_CLASS_NAME);
     if (!isValidDrawableResource(
         applicationContext, defaultIcon, result, INVALID_ICON_ERROR_CODE)) {
       return;
@@ -1573,6 +1575,7 @@ public class FlutterLocalNotificationsPlugin
         applicationContext.getSharedPreferences(SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
     SharedPreferences.Editor editor = sharedPreferences.edit();
     editor.putString(DEFAULT_ICON, defaultIcon).apply();
+    editor.putString(SCHEDULE_RECEIVER_REFLECTION_CLASS_NAME, scheduleReceiverReflectionClassName).apply();
     result.success(true);
   }
 
@@ -1675,7 +1678,7 @@ public class FlutterLocalNotificationsPlugin
   }
 
   private void cancelNotification(Integer id, String tag) {
-    Intent intent = new Intent(applicationContext, ScheduledNotificationReceiver.class);
+    Intent intent = new Intent(applicationContext, getReceiverClass(applicationContext));
     PendingIntent pendingIntent = getBroadcastPendingIntent(applicationContext, id, intent);
     AlarmManager alarmManager = getAlarmManager(applicationContext);
     alarmManager.cancel(pendingIntent);
@@ -1688,6 +1691,20 @@ public class FlutterLocalNotificationsPlugin
     removeNotificationFromCache(applicationContext, id);
   }
 
+  private static Class getReceiverClass(Context context) {
+    SharedPreferences sharedPreferences =
+            context.getSharedPreferences(SHARED_PREFERENCES_KEY, Context.MODE_PRIVATE);
+    final String className = sharedPreferences.getString(SCHEDULE_RECEIVER_REFLECTION_CLASS_NAME, null);
+    if (className == null || className.isEmpty()) {
+      return ScheduledNotificationReceiver.class;
+    }
+    try {
+      return Class.forName(className);
+    } catch (Exception ex) {
+      return ScheduledNotificationReceiver.class;
+    }
+  }
+
   private void cancelAllNotifications(Result result) {
     NotificationManagerCompat notificationManager = getNotificationManager(applicationContext);
     notificationManager.cancelAll();
@@ -1698,7 +1715,7 @@ public class FlutterLocalNotificationsPlugin
       return;
     }
 
-    Intent intent = new Intent(applicationContext, ScheduledNotificationReceiver.class);
+    Intent intent = new Intent(applicationContext, getReceiverClass(applicationContext));
     for (NotificationDetails scheduledNotification : scheduledNotifications) {
       PendingIntent pendingIntent =
           getBroadcastPendingIntent(applicationContext, scheduledNotification.id, intent);
