@@ -469,18 +469,22 @@ public class FlutterLocalNotificationsPlugin
           (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
       NotificationChannel notificationChannel =
           notificationManager.getNotificationChannel(notificationChannelDetails.id);
-      // only create/update the channel when needed/specified. Allow this happen to when
-      // channelAction may be null to support cases where notifications had been
-      // created on older versions of the plugin where channel management options weren't available
-      // back then
-      return ((notificationChannel == null
-              && (notificationChannelDetails.channelAction == null
-                  || notificationChannelDetails.channelAction
-                      == NotificationChannelAction.CreateIfNotExists))
-          || (notificationChannel != null
-              && notificationChannelDetails.channelAction == NotificationChannelAction.Update));
+      return shouldSetupChannel(
+          notificationChannel != null, notificationChannelDetails.channelAction);
     }
     return false;
+  }
+
+  /**
+   * Whether to create or update the channel before posting. A missing channel is always created:
+   * upstream skipped it for {@code Update}, so a notification asking to update its channel's name
+   * was posted to a channel that did not exist and Android dropped it. An existing channel is only
+   * touched for {@code Update} (Android then changes its name and description and keeps the user's
+   * settings). A null action comes from notifications cached by older plugin versions.
+   */
+  static boolean shouldSetupChannel(boolean channelExists, NotificationChannelAction channelAction) {
+    if (!channelExists) return true;
+    return channelAction == NotificationChannelAction.Update;
   }
 
   private static void setSmallIcon(
