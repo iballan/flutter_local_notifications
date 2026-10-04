@@ -60,6 +60,16 @@ public class ScheduledNotificationReceiver extends BroadcastReceiver {
       Type type = new TypeToken<NotificationDetails>() {}.getType();
       NotificationDetails notificationDetails = gson.fromJson(notificationDetailsJson, type);
 
+      if (FlutterLocalNotificationsPlugin.isStale(
+          notificationDetails,
+          System.currentTimeMillis(),
+          FlutterLocalNotificationsPlugin.STALE_GRACE_MS)) {
+        // Delivered far too late (clock jumped forward, or a very late OEM delivery): drop it.
+        FlutterLocalNotificationsPlugin.removeNotificationFromCache(context, notificationDetails.id);
+        Log.w(TAG, "Dropped stale notification " + notificationDetails.id);
+        return;
+      }
+
       FlutterLocalNotificationsPlugin.showNotification(context, notificationDetails);
       FlutterLocalNotificationsPlugin.scheduleNextNotification(context, notificationDetails);
     }

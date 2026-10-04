@@ -198,11 +198,53 @@ public class FlutterLocalNotificationsPlugin
   private PermissionRequestListener callback;
   private boolean permissionRequestInProgress = false;
 
+  /**
+   * How late a one-shot notification may still be delivered. Alarms that came due while the device
+   * was off are never fired, so their cached entries are re-armed on boot; anything later than this
+   * is dropped instead of being posted all at once.
+   */
+  static final long STALE_GRACE_MS = 10 * 60 * 1000L;
+
+  /**
+   * Whether {@code notificationDetails} is a one-shot notification whose due time is known and
+   * earlier than {@code nowMs - graceMs}. Repeating entries and entries with an unknown due time are
+   * never stale.
+   */
+  static boolean isStale(NotificationDetails notificationDetails, long nowMs, long graceMs) {
+    if (notificationDetails.repeatInterval != null
+        || notificationDetails.matchDateTimeComponents != null
+        || notificationDetails.scheduledNotificationRepeatFrequency != null) {
+      return false;
+    }
+    Long dueMs = null;
+    if (notificationDetails.timeZoneName != null) {
+      if (notificationDetails.scheduledDateTime != null) {
+        try {
+          dueMs =
+              ZonedDateTime.of(
+                      LocalDateTime.parse(notificationDetails.scheduledDateTime),
+                      ZoneId.of(notificationDetails.timeZoneName))
+                  .toInstant()
+                  .toEpochMilli();
+        } catch (RuntimeException e) {
+          return false;
+        }
+      }
+    } else {
+      dueMs = notificationDetails.millisecondsSinceEpoch;
+    }
+    return dueMs != null && dueMs < nowMs - graceMs;
+  }
+
   static void rescheduleNotifications(Context context) {
     ArrayList<NotificationDetails> scheduledNotifications = loadScheduledNotifications(context);
+    long nowMs = System.currentTimeMillis();
     for (NotificationDetails notificationDetails : scheduledNotifications) {
       try {
-        if (notificationDetails.repeatInterval != null) {
+        if (isStale(notificationDetails, nowMs, STALE_GRACE_MS)) {
+          // Came due while the device was off; re-arming it would post it immediately.
+          removeNotificationFromCache(context, notificationDetails.id);
+        } else if (notificationDetails.repeatInterval != null) {
           repeatNotification(context, notificationDetails, false);
         } else if (notificationDetails.timeZoneName != null) {
           zonedScheduleNotification(context, notificationDetails, false);
@@ -213,6 +255,9 @@ public class FlutterLocalNotificationsPlugin
         // TODO: update tag used to match name of class
         Log.e("notification", e.getMessage());
         removeNotificationFromCache(context, notificationDetails.id);
+      } catch (RuntimeException e) {
+        // One bad cached entry must not stop the rest from being re-armed.
+        Log.e("notification", "Failed to reschedule notification " + notificationDetails.id, e);
       }
     }
   }
