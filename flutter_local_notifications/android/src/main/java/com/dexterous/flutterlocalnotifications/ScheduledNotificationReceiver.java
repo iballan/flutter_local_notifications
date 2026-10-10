@@ -70,8 +70,15 @@ public class ScheduledNotificationReceiver extends BroadcastReceiver {
         return;
       }
 
-      FlutterLocalNotificationsPlugin.showNotification(context, notificationDetails);
+      if (shouldShowNotification(context, notificationDetails)) {
+        FlutterLocalNotificationsPlugin.showNotification(context, notificationDetails);
+      }
       FlutterLocalNotificationsPlugin.scheduleNextNotification(context, notificationDetails);
     }
+  }
+
+  /** A subclass can handle an alarm natively while retaining normal one-shot cache cleanup. */
+  protected boolean shouldShowNotification(Context context, NotificationDetails notificationDetails) {
+    return true;
   }
 }
