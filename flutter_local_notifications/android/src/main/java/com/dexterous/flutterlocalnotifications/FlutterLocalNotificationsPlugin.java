@@ -198,11 +198,53 @@ public class FlutterLocalNotificationsPlugin
   private PermissionRequestListener callback;
   private boolean permissionRequestInProgress = false;
 
+  /**
+   * How late a one-shot notification may still be delivered. Alarms that came due while the device
+   * was off are never fired, so their cached entries are re-armed on boot; anything later than this
+   * is dropped instead of being posted all at once.
+   */
+  static final long STALE_GRACE_MS = 10 * 60 * 1000L;
+
+  /**
+   * Whether {@code notificationDetails} is a one-shot notification whose due time is known and
+   * earlier than {@code nowMs - graceMs}. Repeating entries and entries with an unknown due time are
+   * never stale.
+   */
+  static boolean isStale(NotificationDetails notificationDetails, long nowMs, long graceMs) {
+    if (notificationDetails.repeatInterval != null
+        || notificationDetails.matchDateTimeComponents != null
+        || notificationDetails.scheduledNotificationRepeatFrequency != null) {
+      return false;
+    }
+    Long dueMs = null;
+    if (notificationDetails.timeZoneName != null) {
+      if (notificationDetails.scheduledDateTime != null) {
+        try {
+          dueMs =
+              ZonedDateTime.of(
+                      LocalDateTime.parse(notificationDetails.scheduledDateTime),
+                      ZoneId.of(notificationDetails.timeZoneName))
+                  .toInstant()
+                  .toEpochMilli();
+        } catch (RuntimeException e) {
+          return false;
+        }
+      }
+    } else {
+      dueMs = notificationDetails.millisecondsSinceEpoch;
+    }
+    return dueMs != null && dueMs < nowMs - graceMs;
+  }
+
   static void rescheduleNotifications(Context context) {
     ArrayList<NotificationDetails> scheduledNotifications = loadScheduledNotifications(context);
+    long nowMs = System.currentTimeMillis();
     for (NotificationDetails notificationDetails : scheduledNotifications) {
       try {
-        if (notificationDetails.repeatInterval != null) {
+        if (isStale(notificationDetails, nowMs, STALE_GRACE_MS)) {
+          // Came due while the device was off; re-arming it would post it immediately.
+          removeNotificationFromCache(context, notificationDetails.id);
+        } else if (notificationDetails.repeatInterval != null) {
           repeatNotification(context, notificationDetails, false);
         } else if (notificationDetails.timeZoneName != null) {
           zonedScheduleNotification(context, notificationDetails, false);
@@ -213,6 +255,9 @@ public class FlutterLocalNotificationsPlugin
         // TODO: update tag used to match name of class
         Log.e("notification", e.getMessage());
         removeNotificationFromCache(context, notificationDetails.id);
+      } catch (RuntimeException e) {
+        // One bad cached entry must not stop the rest from being re-armed.
+        Log.e("notification", "Failed to reschedule notification " + notificationDetails.id, e);
       }
     }
   }
@@ -424,18 +469,22 @@ public class FlutterLocalNotificationsPlugin
           (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
       NotificationChannel notificationChannel =
           notificationManager.getNotificationChannel(notificationChannelDetails.id);
-      // only create/update the channel when needed/specified. Allow this happen to when
-      // channelAction may be null to support cases where notifications had been
-      // created on older versions of the plugin where channel management options weren't available
-      // back then
-      return ((notificationChannel == null
-              && (notificationChannelDetails.channelAction == null
-                  || notificationChannelDetails.channelAction
-                      == NotificationChannelAction.CreateIfNotExists))
-          || (notificationChannel != null
-              && notificationChannelDetails.channelAction == NotificationChannelAction.Update));
+      return shouldSetupChannel(
+          notificationChannel != null, notificationChannelDetails.channelAction);
     }
     return false;
+  }
+
+  /**
+   * Whether to create or update the channel before posting. A missing channel is always created:
+   * upstream skipped it for {@code Update}, so a notification asking to update its channel's name
+   * was posted to a channel that did not exist and Android dropped it. An existing channel is only
+   * touched for {@code Update} (Android then changes its name and description and keeps the user's
+   * settings). A null action comes from notifications cached by older plugin versions.
+   */
+  static boolean shouldSetupChannel(boolean channelExists, NotificationChannelAction channelAction) {
+    if (!channelExists) return true;
+    return channelAction == NotificationChannelAction.Update;
   }
 
   private static void setSmallIcon(
