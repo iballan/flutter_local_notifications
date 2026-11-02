@@ -53,6 +53,7 @@ void main() {
       expect(log, <Matcher>[
         isMethodCall('initialize', arguments: <String, Object>{
           'defaultIcon': 'app_icon',
+          'scheduleReceiverReflectionClassName': '',
         })
       ]);
     });

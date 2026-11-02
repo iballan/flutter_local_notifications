@@ -17,7 +17,7 @@ import 'styles/messaging_style_information.dart';
 extension AndroidInitializationSettingsMapper on AndroidInitializationSettings {
   Map<String, Object> toMap() => <String, Object>{
     'defaultIcon': defaultIcon,
-    'scheduleReceiverReflectionClassName': scheduleReceiverReflectionClassName ?? ''
+    'scheduleReceiverReflectionClassName': scheduleReceiverReflectionClassName
   };
 }
 
