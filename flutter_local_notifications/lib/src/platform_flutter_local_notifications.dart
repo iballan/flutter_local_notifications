@@ -449,6 +449,12 @@ class AndroidFlutterLocalNotificationsPlugin
       _channel.invokeMethod(
           'createNotificationChannel', notificationChannel.toMap());
 
+  /// Cancels every scheduled notification and clears the cache used to
+  /// re-schedule them after a reboot, without removing the notifications that
+  /// are already shown (unlike [cancelAll], which also stops their sound).
+  Future<void> cancelAllPendingNotifications() =>
+      _channel.invokeMethod('cancelAllPendingNotifications');
+
   /// Deletes the notification channel with the specified [channelId].
   ///
   /// This method is only applicable to Android versions 8.0 or newer.

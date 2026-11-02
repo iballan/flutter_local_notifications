@@ -77,6 +77,16 @@ public class ScheduledNotificationReceiver extends BroadcastReceiver {
     }
   }
 
+  /**
+   * The notification the plugin would post for {@code notificationDetails} (creating its channel
+   * if needed), for a subclass that posts it itself, e.g. as a foreground service's notification.
+   * Tapping it reaches Dart exactly like a plugin-posted one.
+   */
+  protected static Notification buildNotification(
+      Context context, NotificationDetails notificationDetails) {
+    return FlutterLocalNotificationsPlugin.createNotification(context, notificationDetails);
+  }
+
   /** A subclass can handle an alarm natively while retaining normal one-shot cache cleanup. */
   protected boolean shouldShowNotification(Context context, NotificationDetails notificationDetails) {
     return true;

@@ -148,6 +148,7 @@ public class FlutterLocalNotificationsPlugin
   private static final String SHOW_METHOD = "show";
   private static final String CANCEL_METHOD = "cancel";
   private static final String CANCEL_ALL_METHOD = "cancelAll";
+  private static final String CANCEL_ALL_PENDING_METHOD = "cancelAllPendingNotifications";
   private static final String SCHEDULE_METHOD = "schedule";
   private static final String ZONED_SCHEDULE_METHOD = "zonedSchedule";
   private static final String PERIODICALLY_SHOW_METHOD = "periodicallyShow";
@@ -1452,6 +1453,10 @@ public class FlutterLocalNotificationsPlugin
       case CANCEL_ALL_METHOD:
         cancelAllNotifications(result);
         break;
+      case CANCEL_ALL_PENDING_METHOD:
+        cancelScheduledNotifications();
+        result.success(null);
+        break;
       case PENDING_NOTIFICATION_REQUESTS_METHOD:
         pendingNotificationRequests(result);
         break;
@@ -1771,10 +1776,18 @@ public class FlutterLocalNotificationsPlugin
   private void cancelAllNotifications(Result result) {
     NotificationManagerCompat notificationManager = getNotificationManager(applicationContext);
     notificationManager.cancelAll();
+    cancelScheduledNotifications();
+    result.success(null);
+  }
+
+  /**
+   * Cancels every scheduled alarm and empties the cache used to re-arm them after a reboot, but leaves notifications
+   * that are already posted alone: removing a posted notification also stops the sound it is playing.
+   */
+  private void cancelScheduledNotifications() {
     ArrayList<NotificationDetails> scheduledNotifications =
         loadScheduledNotifications(applicationContext);
     if (scheduledNotifications == null || scheduledNotifications.isEmpty()) {
-      result.success(null);
       return;
     }
 
@@ -1787,7 +1800,6 @@ public class FlutterLocalNotificationsPlugin
     }
 
     saveScheduledNotifications(applicationContext, new ArrayList<>());
-    result.success(null);
   }
 
   public void requestPermission(@NonNull PermissionRequestListener callback) {
